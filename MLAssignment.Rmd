@@ -1,0 +1,139 @@
+# Coursera Practicle Machine Learning Project
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+# Data
+The training data for this project are available here: 
+```
+[here](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv)
+```
+
+The test data are available here: 
+```
+[here](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv)
+```
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment. 
+
+## Modeling
+
+In order to provide consistent data to construct features, the first remove the null value from the column. The following steps where taken:
+
+1.  Remove excel division error strings `#DIV/0!` and replace with `NA` values.
+1.  Convert empty strings to `NA` values.
+
+R code of this project is: [here](https://github.com/anilcs/Practical_ML/blob/master/MLAssignment.R).
+
+There is a markup file  [here](https://github.com/anilcs/Practical_ML/blob/master/MLAssignment.Rmd).
+
+## Load the dataset 
+
+read the csv file for training dataset 
+```
+ data_training <- read.csv("pml-training.csv", na.strings= c("NA",""," "))
+```
+read the csv file for testing
+```
+data_test <- read.csv("pml-testing.csv", na.strings= c("NA",""," "))
+```
+clean the data by removing columns with NAs etc.
+```
+training_data_NAs <- apply(data_training, 2, function(x){sum(is.na(x))})
+data_training_clean <- data_training[,which(training_data_NAs == 0)]
+```
+remove identifier columns such as name, timestamps etc
+```
+data_training_clean <- data_training_clean[8:length(data_training_clean)]
+```
+## apply the same for the test data for cleaning
+```
+test_data_NAs <- apply(data_test, 2, function(x) {sum(is.na(x))})
+data_test_clean <- data_test[,which(test_data_NAs == 0)]
+data_test_clean <- data_test_clean[8:length(data_test_clean)]
+```
+##Cross Validation
+
+Cross Validation split the cleaned testing data into training and cross validation
+Cross validation was achieved by splitting the training data into a test set and a training set using the following:
+The data was partioned by the `classe` variable to ensure the training set and test set contain examples of each class. 65% of the training data was allocated to the training set and the remainder for the validation set.
+
+```{r cross_validate}
+
+inTrain <- createDataPartition(y = data_training_clean$classe, p = 0.65., list = FALSE)
+training <- data_training_clean[inTrain, ]
+crossval <- data_training_clean[-inTrain, ]
+
+```
+
+plot a correlation matrix
+
+```{r confusion_matrix, echo=F}
+
+correlMatrix <- cor(training[, -length(training)])
+corrplot(correlMatrix,order = "AOE", method = "pie")
+
+```
+\includegraphics[width=250pt]{Rplots.pdf}
+
+
+fit a model to predict the classe using everything else as a predictor
+
+## Prediction
+
+The random forest model was initially used to prediction.
+
+```{r train, echo=F}
+model <- randomForest(classe ~ ., data = training)
+
+```
+
+## crossvalidate
+crossvalidate the model using the remaining 35% of data
+```
+predictCrossVal <- predict(model, crossval)
+confusionMatrix(crossval$classe, predictCrossVal)
+```
+#predict for test set
+
+predict the classes of the test set
+```
+predictTest <- predict(model, data_test_clean)
+```
+
+
+
+Confusion Matrix and Statistics
+```
+          Reference
+Prediction    A    B    C    D    E
+         A 1950    1    2    0    0
+         B    8 1317    3    0    0
+         C    0    9 1186    2    0
+         D    0    0    8 1117    0
+         E    0    0    3    6 1253
+```
+Overall Statistics
+                                          
+               Accuracy : 0.9939          
+                 95% CI : (0.9917, 0.9956)
+    No Information Rate : 0.2852          
+    P-Value [Acc > NIR] : < 2.2e-16       
+                                          
+                  Kappa : 0.9923          
+    Mcnemar's Test P-Value : NA              
+
+Statistics by Class:
+```
+                     Class: A Class: B Class: C Class: D Class: E
+Sensitivity            0.9959   0.9925   0.9867   0.9929   1.0000
+Specificity            0.9994   0.9980   0.9981   0.9986   0.9984
+Pos Pred Value         0.9985   0.9917   0.9908   0.9929   0.9929
+Neg Pred Value         0.9984   0.9982   0.9972   0.9986   1.0000
+Prevalence             0.2852   0.1933   0.1751   0.1639   0.1825
+Detection Rate         0.2840   0.1918   0.1728   0.1627   0.1825
+Detection Prevalence   0.2845   0.1934   0.1744   0.1639   0.1838
+Balanced Accuracy      0.9977   0.9952   0.9924   0.9957   0.9992
+```
+
+## Conclusion
+
+The random forest algorithm appears to perform very well for predicting activities from accelerometers measurements.
